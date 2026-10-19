@@ -1,0 +1,106 @@
+{{define "content"}}
+{{$r := .Data.Req}}
+<div class="page-head">
+  <h1>New tenant</h1>
+  <p class="muted">Create a client workspace with the database it prefers, on a subdomain or on the client's own domain. SciCom CX creates the database, a dedicated DB user, the tables and the tenant's first admin, then brings the address live.</p>
+</div>
+{{with .Data.Errors}}<div class="flash flash-err">{{range .}}<div>{{.}}</div>{{end}}</div>{{end}}
+
+<form method="post" action="/tenants" id="tenant-form" class="wizard">
+  <input type="hidden" name="csrf_token" value="{{.Session.CSRFToken}}">
+
+  <section class="card wizard-step">
+    <h2><span class="step-no">1</span> Workspace</h2>
+    <div class="form-grid">
+      <label>Tenant name <input name="name" id="t-name" value="{{$r.Name}}" placeholder="Acme Corporation" required autofocus></label>
+      <label>Tenant ID <span class="muted small">short code, used for the database name (scx_&lt;id&gt;)</span>
+        <input name="id" id="t-id" value="{{$r.ID}}" pattern="[a-z0-9][a-z0-9\-]{0,26}[a-z0-9]" maxlength="28" placeholder="acme" required
+               hx-get="/tenants/check" hx-trigger="input changed delay:300ms, load" hx-target="#sub-check" hx-params="id">
+        <span id="sub-check" class="small"></span>
+      </label>
+    </div>
+
+    <div class="field-label">Workspace address</div>
+    <div class="choice-cards">
+      <label class="choice-card">
+        <input type="radio" name="address" value="subdomain" {{if eq $r.Address "subdomain"}}checked{{end}}>
+        <span class="choice-body"><strong>Subdomain</strong>
+          <span class="small muted"><span class="id-preview">acme</span>.{{.Data.Base}}</span>
+          <span class="small muted">Live immediately.</span></span>
+      </label>
+      <label class="choice-card">
+        <input type="radio" name="address" value="domain" {{if eq $r.Address "domain"}}checked{{end}}>
+        <span class="choice-body"><strong>Client's own domain</strong>
+          <span class="small muted">e.g. support.acme.com</span>
+          <span class="small muted">Live once the client's DNS is verified.</span></span>
+      </label>
+    </div>
+    <label class="address-domain">Client's domain
+      <input name="custom_domain" value="{{$r.CustomDomain}}" placeholder="support.acme.com">
+      <span class="small muted">The next page shows the 2 DNS records to give the client.{{if .Data.DevAuto}} For local testing, a domain ending in <code>.localhost</code> goes live instantly.{{end}}</span>
+    </label>
+  </section>
+
+  <section class="card wizard-step">
+    <h2><span class="step-no">2</span> Database</h2>
+    <div class="db-cards">
+      {{range .Data.Types}}
+      <label class="db-card db-card-{{.}}">
+        <input type="radio" name="db_type" value="{{.}}" {{if eq . $r.DBType}}checked{{end}}>
+        <span class="db-card-body">
+          <span class="badge db-{{.}}">{{.}}</span>
+          <span class="small muted">{{if eq . "postgres"}}Relational, strong consistency, JSONB{{else if eq . "mysql"}}Popular relational database{{else if eq . "mariadb"}}MySQL-compatible, community fork{{else}}Document database, flexible schema{{end}}</span>
+        </span>
+      </label>
+      {{end}}
+    </div>
+
+    <div class="mode-switch">
+      <label class="check"><input type="radio" name="mode" value="managed" {{if eq $r.Mode "managed"}}checked{{end}}> <span><strong>Create it for me</strong> <span class="muted small">on one of our database servers (recommended)</span></span></label>
+      <label class="check"><input type="radio" name="mode" value="external" {{if eq $r.Mode "external"}}checked{{end}}> <span><strong>Connect an existing database</strong> <span class="muted small">e.g. the client's own server</span></span></label>
+    </div>
+
+    <div class="mode-managed">
+      <label>Database server
+        <select name="server_id" id="server_id">
+          <option value="0">Default server for the chosen type</option>
+          {{range .Data.Servers}}<option value="{{.ID}}" data-type="{{.DBType}}" {{if eq .ID $r.ServerID}}selected{{end}}>{{.Name}} ({{.DBType}} · {{.Host}}:{{.Port}}){{if .IsDefault}} · default{{end}}</option>{{end}}
+        </select>
+      </label>
+      {{if not .Data.Servers}}<p class="small err-text">No database servers yet. <a href="/servers">Add one</a> first.</p>{{end}}
+      <p class="small muted">A database and a DB user, both named <code>scx_&lt;tenant id&gt;</code>, are created with a random password that is stored encrypted in the central database.</p>
+    </div>
+
+    <div class="mode-external form-grid">
+      <label>Host <input name="host" value="{{$r.External.Host}}" placeholder="db.client.example"></label>
+      <label>Port <input name="port" id="port" type="number" min="1" max="65535" value="{{$r.External.Port}}"></label>
+      <label>Database <input name="database" value="{{$r.External.Database}}"></label>
+      <label>Username <input name="username" value="{{$r.External.Username}}" autocomplete="off"></label>
+      <label>Password <input name="password" type="password" autocomplete="new-password"></label>
+      <label>Driver params <span class="muted small">key=value per line</span>
+        <textarea name="params" rows="2" class="mono">{{params $r.External.Params}}</textarea></label>
+      <div class="span2 form-actions">
+        <button class="btn" type="button" hx-post="/tenants/test" hx-include="#tenant-form" hx-target="#test-result" hx-indicator="#test-spin">Test connection</button>
+        <span id="test-spin" class="htmx-indicator muted">testing…</span>
+      </div>
+      <div id="test-result" class="span2"></div>
+    </div>
+  </section>
+
+  <section class="card wizard-step">
+    <h2><span class="step-no">3</span> Tenant admin</h2>
+    <p class="small muted">The first user of the workspace. It is stored inside the tenant's own database, not in the central database.</p>
+    <div class="form-grid">
+      <label>Full name <input name="admin_name" value="{{$r.AdminName}}" placeholder="Jane Doe"></label>
+      <label>Email <input name="admin_email" type="email" value="{{$r.AdminEmail}}" placeholder="jane@acme.com" required></label>
+      <label>Password <input name="admin_password" type="password" minlength="8" autocomplete="new-password" placeholder="leave empty to generate one"></label>
+    </div>
+  </section>
+
+  <div class="form-actions">
+    <button class="btn btn-primary btn-lg" type="submit">Create tenant</button>
+    <a class="btn btn-ghost" href="/tenants">Cancel</a>
+    <span class="muted small">This takes a few seconds.</span>
+  </div>
+</form>
+{{end}}

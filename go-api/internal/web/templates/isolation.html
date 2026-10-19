@@ -1,0 +1,23 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Multi-tenant isolation test</h1>
+  <p class="muted">Calls the tenant API over real HTTP, hitting all {{len .Data.Tenants}} tenant databases at the same time, and checks that no data, DB session or token crosses tenants.</p>
+</div>
+<div class="card explain">
+  <ol>
+    <li><strong>Load:</strong> concurrent reads and writes across every tenant. Each response is checked against the marker stored <em>inside</em> the tenant's own database, the DB session state left on pooled connections, and the owner of every row returned.</li>
+    <li><strong>Hot pool swap:</strong> halfway through, one tenant's config version is bumped while requests are in flight. The engine must swap pools without failing any request.</li>
+    <li><strong>Tokens:</strong> a cross-tenant token, a tampered token, <code>alg=none</code>, the wrong key, an expired token, the wrong audience and a revoked token must all be rejected.</li>
+    <li><strong>Sessions:</strong> missing, forged or expired admin sessions, missing or wrong CSRF tokens, and logout revocation.</li>
+  </ol>
+</div>
+<form class="card form-inline" hx-post="/isolation/run" hx-target="#report" hx-indicator="#run-spin" hx-disabled-elt="find button">
+  <label>Concurrent workers <input type="number" name="concurrency" min="1" max="256" value="{{.Data.Opts.Concurrency}}"></label>
+  <label>Requests per tenant <input type="number" name="requests" min="1" max="5000" value="{{.Data.Opts.RequestsPerTenant}}"></label>
+  <label class="check"><input type="checkbox" name="writes" {{if .Data.Opts.Writes}}checked{{end}}> Include writes</label>
+  <label class="check"><input type="checkbox" name="hotswap" {{if .Data.Opts.HotSwap}}checked{{end}}> Hot pool swap</label>
+  <button class="btn btn-primary" type="submit">Run test</button>
+  <span id="run-spin" class="htmx-indicator muted">running… hitting all databases</span>
+</form>
+<div id="report"></div>
+{{end}}

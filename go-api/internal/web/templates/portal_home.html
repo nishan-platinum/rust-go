@@ -1,0 +1,60 @@
+{{define "portal_content"}}
+<div class="page-head">
+  <h1>Welcome, {{.User.Name}}</h1>
+  <p class="muted">This is the <strong>{{.Tenant.Name}}</strong> workspace. Everything on this page is read from and written to this workspace's own database.</p>
+</div>
+{{range .Data.Errors}}<div class="flash flash-err">{{.}}</div>{{end}}
+
+{{with .Data.Who}}
+<div class="stats">
+  <div class="stat"><div class="stat-label">Database type</div><div class="stat-value"><span class="badge db-{{$.Tenant.DBType}}">{{$.Tenant.DBType}}</span></div></div>
+  <div class="stat"><div class="stat-label">Database</div><div class="stat-value mono-lg">{{.Database}}</div></div>
+  <div class="stat"><div class="stat-label">Server</div><div class="stat-value small-val">{{.ServerVersion}}</div></div>
+  <div class="stat"><div class="stat-label">Ownership marker</div><div class="stat-value mono-lg {{if eq .MarkerTenantId $.Tenant.ID}}ok-text{{else}}err-text{{end}}">{{.MarkerTenantId}}</div></div>
+</div>
+{{end}}
+
+<div class="portal-grid">
+  <section>
+    <h2>Records</h2>
+    <form method="post" action="/items" class="form-inline-compact">
+      <input type="hidden" name="csrf_token" value="{{.User.CSRFToken}}">
+      <input name="name" placeholder="New record, e.g. Ticket #1042" maxlength="255" required>
+      <button class="btn btn-primary" type="submit">Add</button>
+    </form>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th>Owner</th><th>Created</th></tr></thead>
+      <tbody>
+      {{range .Data.Items}}
+        <tr><td class="mono small">{{.Id}}</td><td>{{.Name}}</td><td class="small">{{.Owner}}</td><td class="small nowrap">{{unix .CreatedAtUnix}}</td></tr>
+      {{else}}<tr><td colspan="4" class="muted">No records yet.</td></tr>{{end}}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Users</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead>
+      <tbody>
+      {{range .Data.Users}}<tr><td>{{.Name}}</td><td class="small">{{.Email}}</td><td><span class="pill {{if eq .Role "admin"}}pill-ok{{else}}pill-off{{end}}">{{.Role}}</span></td></tr>{{end}}
+      </tbody>
+    </table>
+    </div>
+    {{if eq .User.Role "admin"}}
+    <form method="post" action="/users" class="card form-stack">
+      <input type="hidden" name="csrf_token" value="{{.User.CSRFToken}}">
+      <strong>Add user</strong>
+      <input name="name" placeholder="Full name">
+      <input name="email" type="email" placeholder="email@company.com" required>
+      <input name="password" type="password" minlength="8" placeholder="Password (min 8)" autocomplete="new-password" required>
+      <select name="role"><option value="member">member</option><option value="admin">admin</option></select>
+      <button class="btn" type="submit">Add user</button>
+    </form>
+    {{end}}
+  </section>
+</div>
+{{end}}

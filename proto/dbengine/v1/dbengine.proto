@@ -1,0 +1,192 @@
+syntax = "proto3";
+
+package dbengine.v1;
+
+option go_package = "github.com/example/rust-go/go-api/gen/dbengine/v1;dbenginev1";
+
+// DbEngine is the Rust data-plane service. It owns one connection pool per
+// tenant and speaks to PostgreSQL, MySQL, MariaDB and MongoDB.
+//
+// Every request carries the full TenantConn (including config_version), so the
+// engine is stateless from the caller's point of view: if it restarts, or a
+// tenant's config changes, the pool is (re)built on the next call.
+service DbEngine {
+  // Ad-hoc connectivity check for a config that has not been saved yet.
+  rpc TestConnection(TestConnectionRequest) returns (HealthResult);
+  // Create tables + claim the database for this tenant (idempotent).
+  rpc Provision(TenantRequest) returns (ProvisionResult);
+  rpc Health(TenantRequest) returns (HealthResult);
+  // Reads the tenant marker from inside the tenant's database plus session
+  // details (backend pid / connection id). Used to detect cross-tenant leaks.
+  rpc WhoAmI(TenantRequest) returns (WhoAmIResult);
+  rpc ListItems(ListItemsRequest) returns (ListItemsResult);
+  rpc InsertItem(InsertItemRequest) returns (Item);
+  rpc EvictTenant(EvictTenantRequest) returns (EvictTenantResult);
+  rpc PoolStats(PoolStatsRequest) returns (PoolStatsResult);
+
+  // ---- managed tenants: run with the *server admin* credentials ----------
+  // Creates the tenant's database and its least-privilege DB user (idempotent:
+  // an existing user gets the new password).
+  rpc CreateTenantDatabase(CreateTenantDatabaseRequest) returns (CreateTenantDatabaseResult);
+  // Permanently drops the tenant's database and DB user.
+  rpc DropTenantDatabase(DropTenantDatabaseRequest) returns (DropTenantDatabaseResult);
+
+  // ---- tenant users: stored inside the tenant's own database -------------
+  // Password hashing happens in the caller; the engine only stores the hash.
+  rpc CreateUser(CreateUserRequest) returns (TenantUser);
+  // NOT_FOUND if no user has this email.
+  rpc GetUserByEmail(GetUserByEmailRequest) returns (TenantUser);
+  // Never returns password hashes.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResult);
+}
+
+enum DbType {
+  DB_TYPE_UNSPECIFIED = 0;
+  DB_TYPE_POSTGRES = 1;
+  DB_TYPE_MYSQL = 2;
+  DB_TYPE_MARIADB = 3;
+  DB_TYPE_MONGODB = 4;
+}
+
+message TenantConn {
+  string tenant_id = 1;
+  int64 config_version = 2;
+  DbType db_type = 3;
+  string host = 4;
+  uint32 port = 5;
+  string username = 6;
+  string password = 7;
+  string database = 8;
+  // Driver-specific extras, e.g. sslmode (postgres), authSource (mongodb).
+  map<string, string> params = 9;
+}
+
+message TenantRequest { TenantConn conn = 1; }
+
+message TestConnectionRequest { TenantConn conn = 1; }
+
+message HealthResult {
+  bool ok = 1;
+  string server_version = 2;
+  int64 latency_ms = 3;
+  string error = 4;
+}
+
+message ProvisionResult {
+  // True when this call claimed the database; false if already claimed by us.
+  bool claimed_now = 1;
+  string marker_tenant_id = 2;
+}
+
+message WhoAmIResult {
+  // Tenant id stored inside the tenant database itself.
+  string marker_tenant_id = 1;
+  string database = 2;
+  string server_version = 3;
+  // Postgres backend pid / MySQL CONNECTION_ID() / Mongo: empty.
+  string session_id = 4;
+  // Session variable left on the pooled connection by the *previous* request
+  // that used it (empty for a fresh connection). Each request then stamps its
+  // own tenant id. Anything other than "" or this tenant's id means session
+  // state leaked across tenants.
+  string session_tag = 5;
+}
+
+message Item {
+  string id = 1;
+  string name = 2;
+  string owner = 3;
+  string nonce = 4;
+  int64 created_at_unix = 5;
+}
+
+message ListItemsRequest {
+  TenantConn conn = 1;
+  uint32 limit = 2;
+}
+
+message ListItemsResult { repeated Item items = 1; }
+
+message InsertItemRequest {
+  TenantConn conn = 1;
+  string name = 2;
+  string owner = 3;
+  string nonce = 4;
+}
+
+message EvictTenantRequest { string tenant_id = 1; }
+
+message EvictTenantResult { bool evicted = 1; }
+
+message PoolStatsRequest {}
+
+message PoolStat {
+  string tenant_id = 1;
+  DbType db_type = 2;
+  int64 config_version = 3;
+  uint32 size = 4;
+  uint32 idle = 5;
+  uint64 requests = 6;
+  int64 created_at_unix = 7;
+}
+
+message PoolStatsResult { repeated PoolStat pools = 1; }
+
+// Admin connection to a database server (not to a tenant database).
+message ServerConn {
+  DbType db_type = 1;
+  string host = 2;
+  uint32 port = 3;
+  string admin_username = 4;
+  string admin_password = 5;
+  // e.g. sslmode (postgres/mysql), authSource (mongodb, default "admin").
+  map<string, string> params = 6;
+}
+
+message CreateTenantDatabaseRequest {
+  ServerConn server = 1;
+  // Identifiers must match ^[a-z][a-z0-9_]{0,31}$ (validated by the engine).
+  string database = 2;
+  string username = 3;
+  // Must match ^[A-Za-z0-9_-]{16,128}$ (validated by the engine).
+  string password = 4;
+}
+
+message CreateTenantDatabaseResult {
+  bool database_created = 1;
+  bool user_created = 2;
+}
+
+message DropTenantDatabaseRequest {
+  ServerConn server = 1;
+  string database = 2;
+  string username = 3;
+}
+
+message DropTenantDatabaseResult { bool dropped = 1; }
+
+message TenantUser {
+  string id = 1;
+  string email = 2;
+  string name = 3;
+  string role = 4;
+  string password_hash = 5;
+  int64 created_at_unix = 6;
+}
+
+message CreateUserRequest {
+  TenantConn conn = 1;
+  string email = 2;
+  string name = 3;
+  string role = 4;
+  string password_hash = 5;
+}
+
+message GetUserByEmailRequest {
+  TenantConn conn = 1;
+  string email = 2;
+}
+
+message ListUsersRequest { TenantConn conn = 1; }
+
+message ListUsersResult { repeated TenantUser users = 1; }

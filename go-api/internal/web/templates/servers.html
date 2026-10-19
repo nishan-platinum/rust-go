@@ -1,0 +1,51 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Database servers</h1>
+  <p class="muted">Servers SciCom CX creates managed tenant databases on. The admin login is used only to create and drop tenant databases and users, and is stored encrypted. Each tenant gets its own least-privilege DB user.</p>
+</div>
+{{with .Data.Errors}}<div class="flash flash-err">{{range .}}<div>{{.}}</div>{{end}}</div>{{end}}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Name</th><th>Type</th><th>Endpoint</th><th>Admin user</th><th class="num">Tenants</th><th>Actions</th></tr></thead>
+  <tbody>
+  {{range .Data.Servers}}
+    <tr>
+      <td><strong>{{.Name}}</strong> {{if .IsDefault}}<span class="pill pill-ok">default</span>{{end}}</td>
+      <td><span class="badge db-{{.DBType}}">{{.DBType}}</span></td>
+      <td class="mono small">{{.Host}}:{{.Port}}</td>
+      <td class="mono small">{{.AdminUsername}}</td>
+      <td class="num">{{.TenantCount}}</td>
+      <td class="actions">
+        <button class="btn btn-sm" hx-post="/servers/{{.ID}}/test" hx-target="#srv-{{.ID}}">Test</button>
+        {{if not .IsDefault}}<form method="post" action="/servers/{{.ID}}/default" class="inline"><input type="hidden" name="csrf_token" value="{{$.Session.CSRFToken}}"><button class="btn btn-sm" type="submit">Make default</button></form>{{end}}
+        <form method="post" action="/servers/{{.ID}}/delete" class="inline confirm" data-confirm="Remove server {{.Name}}? Databases on it are not touched.">
+          <input type="hidden" name="csrf_token" value="{{$.Session.CSRFToken}}"><button class="btn btn-sm btn-danger" type="submit">Remove</button></form>
+      </td>
+    </tr>
+    <tr class="result-row"><td colspan="6"><div id="srv-{{.ID}}"></div></td></tr>
+  {{else}}
+    <tr><td colspan="6" class="muted">No servers yet.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+
+<h2>Add a server</h2>
+{{$f := .Data.Form}}
+<form method="post" action="/servers" class="card form-grid">
+  <input type="hidden" name="csrf_token" value="{{.Session.CSRFToken}}">
+  <label>Name <input name="name" value="{{$f.Name}}" placeholder="postgres-eu-1" required></label>
+  <label>Database type
+    <select name="db_type" id="db_type">
+      {{range .Data.Types}}<option value="{{.}}" data-port="{{index $.Data.Ports .}}" {{if eq . $f.DBType}}selected{{end}}>{{.}}</option>{{end}}
+    </select>
+  </label>
+  <label>Host <input name="host" value="{{$f.Host}}" required></label>
+  <label>Port <input name="port" id="port" type="number" min="1" max="65535" value="{{$f.Port}}" required></label>
+  <label>Admin username <input name="admin_username" value="{{$f.AdminUsername}}" autocomplete="off" required></label>
+  <label>Admin password <input name="admin_password" type="password" autocomplete="new-password" required></label>
+  <label class="span2">Driver params <span class="muted small">(key=value per line, e.g. sslmode=disable; for MongoDB authSource=admin)</span>
+    <textarea name="params" rows="2" class="mono">{{params $f.Params}}</textarea></label>
+  <div class="span2 form-actions"><button class="btn btn-primary" type="submit">Test &amp; add server</button></div>
+</form>
+{{end}}

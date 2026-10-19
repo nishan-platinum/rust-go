@@ -1,0 +1,22 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Dashboard</h1>
+  <p class="muted">Live health of every tenant workspace and its database, checked concurrently through the Rust engine. Refreshes every 15s.</p>
+</div>
+<div class="stats">
+  <div class="stat"><div class="stat-label">Tenants</div><div class="stat-value">{{.Data.Total}}</div></div>
+  <div class="stat"><div class="stat-label">Enabled</div><div class="stat-value">{{.Data.Enabled}}</div></div>
+  {{range $k, $v := .Data.Types}}<div class="stat"><div class="stat-label">{{$k}}</div><div class="stat-value">{{$v}}</div></div>{{end}}
+</div>
+
+<h2>Tenant workspaces</h2>
+<div id="health" hx-get="/ui/health" hx-trigger="load, every 15s" hx-swap="innerHTML">
+  <p class="muted">Checking all databases…</p>
+</div>
+
+<h2>Engine connection pools</h2>
+<p class="muted">One pool per tenant inside the Rust engine. "Version" is the tenant config version the pool was built for.</p>
+<div hx-get="/ui/pools" hx-trigger="load, every 5s" hx-swap="innerHTML">
+  <p class="muted">Loading…</p>
+</div>
+{{end}}

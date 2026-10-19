@@ -1,0 +1,46 @@
+# ---- Build output -------------------------------------------------------
+# Rust build artifacts (several GB)
+/rust-engine/target/
+**/*.rs.bk
+# Go binaries built locally (go build -o ...)
+/go-api/server
+/go-api/isotest
+/go-api/scx-api
+/go-api/bin/
+*.exe
+*.test
+*.out
+coverage.*
+
+# ---- Secrets and local configuration -------------------------------------
+# Real credentials go in .env (read by docker compose); never commit them.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+
+# ---- Logs and runtime data ------------------------------------------------
+*.log
+tmp/
+# Docker data lives in named volumes, but just in case of bind mounts:
+/data/
+
+# ---- Editors, OS and tools ----------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+# Personal Claude Code settings (shared project settings may be committed)
+.claude/settings.local.json
+
+# Keep (do NOT ignore): rust-engine/Cargo.lock, go-api/go.sum, go-api/gen/
+# (generated gRPC code used by the Docker build) and the vendored htmx.min.js.

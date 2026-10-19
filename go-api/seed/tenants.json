@@ -1,0 +1,39 @@
+{
+  "servers": [
+    {
+      "name": "postgres-main", "db_type": "postgres",
+      "host": "${SEED_PG_HOST:-postgres}", "port": "${SEED_PG_PORT:-5432}",
+      "admin_username": "app", "admin_password": "app_pass", "params": {"sslmode": "disable"}
+    },
+    {
+      "name": "mysql-main", "db_type": "mysql",
+      "host": "${SEED_MYSQL_HOST:-mysql}", "port": "${SEED_MYSQL_PORT:-3306}",
+      "admin_username": "root", "admin_password": "root_pass", "params": {}
+    },
+    {
+      "name": "mariadb-main", "db_type": "mariadb",
+      "host": "${SEED_MARIADB_HOST:-mariadb}", "port": "${SEED_MARIADB_PORT:-3306}",
+      "admin_username": "root", "admin_password": "root_pass", "params": {}
+    },
+    {
+      "name": "mongodb-main", "db_type": "mongodb",
+      "host": "${SEED_MONGO_HOST:-mongodb}", "port": "${SEED_MONGO_PORT:-27017}",
+      "admin_username": "root", "admin_password": "root_pass", "params": {"authSource": "admin"}
+    }
+  ],
+  "tenants": [
+    {"id": "acme", "name": "Acme Corp", "db_type": "postgres",
+     "admin_email": "admin@acme.test", "admin_name": "Acme Admin", "admin_password": "demo12345"},
+    {"id": "hooli", "name": "Hooli", "db_type": "postgres",
+     "admin_email": "admin@hooli.test", "admin_name": "Hooli Admin", "admin_password": "demo12345"},
+    {"id": "globex", "name": "Globex", "db_type": "mysql",
+     "admin_email": "admin@globex.test", "admin_name": "Globex Admin", "admin_password": "demo12345"},
+    {"id": "initech", "name": "Initech", "db_type": "mariadb",
+     "admin_email": "admin@initech.test", "admin_name": "Initech Admin", "admin_password": "demo12345"},
+    {"id": "wayne", "name": "Wayne Enterprises", "db_type": "mongodb",
+     "admin_email": "admin@wayne.test", "admin_name": "Wayne Admin", "admin_password": "demo12345",
+     "address": "domain", "domain": "wayne-portal.localhost"},
+    {"id": "umbrella", "name": "Umbrella", "db_type": "mongodb",
+     "admin_email": "admin@umbrella.test", "admin_name": "Umbrella Admin", "admin_password": "demo12345"}
+  ]
+}

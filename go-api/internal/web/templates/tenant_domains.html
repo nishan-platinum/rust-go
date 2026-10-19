@@ -1,0 +1,55 @@
+{{define "content"}}
+{{$t := .Data.Tenant}}
+<div class="page-head">
+  <h1>Domains · {{$t.Name}}</h1>
+  <p class="muted">Where this workspace can be opened. To move a client from the subdomain to their own domain: add the domain, verify it, then turn the subdomain off. A custom domain only opens the workspace after its ownership is verified, and a workspace always keeps at least one live address.</p>
+</div>
+{{with .Data.Error}}<div class="flash flash-err">{{.}}</div>{{end}}
+
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Domain</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>{{subdomain $t.ID}}</strong> <span class="muted small">built-in subdomain</span></td>
+      <td>{{if $t.SubdomainEnabled}}<span class="pill pill-ok">on · live</span>{{else}}<span class="pill pill-off">off</span>{{end}}</td>
+      <td class="actions">
+        <form method="post" action="/tenants/{{$t.ID}}/subdomain" class="inline">
+          <input type="hidden" name="csrf_token" value="{{$.Session.CSRFToken}}">
+          <input type="hidden" name="on" value="{{if $t.SubdomainEnabled}}false{{else}}true{{end}}">
+          <button class="btn btn-sm" type="submit">{{if $t.SubdomainEnabled}}Turn off{{else}}Turn on{{end}}</button>
+        </form>
+      </td>
+    </tr>
+  {{range .Data.Domains}}
+    <tr>
+      <td><strong>{{.Domain}}</strong> {{if .IsPrimary}}<span class="pill pill-ok">primary</span>{{end}}</td>
+      <td>{{if .Verified}}<span class="pill pill-ok">verified · live</span>{{else}}<span class="pill pill-warn">waiting for DNS</span>{{end}}</td>
+      <td class="actions">
+        {{if .Verified}}<a class="btn btn-sm" href="{{hostURL .Domain}}" target="_blank" rel="noopener">Open</a>{{end}}
+        {{if not .Verified}}
+        <form method="post" action="/tenants/{{$t.ID}}/domains/{{.Domain}}/verify" class="inline"><input type="hidden" name="csrf_token" value="{{$.Session.CSRFToken}}"><button class="btn btn-sm btn-primary" type="submit">Verify</button></form>
+        {{else if not .IsPrimary}}
+        <form method="post" action="/tenants/{{$t.ID}}/domains/{{.Domain}}/primary" class="inline"><input type="hidden" name="csrf_token" value="{{$.Session.CSRFToken}}"><button class="btn btn-sm" type="submit">Make primary</button></form>
+        {{end}}
+        <form method="post" action="/tenants/{{$t.ID}}/domains/{{.Domain}}/delete" class="inline confirm" data-confirm="Remove {{.Domain}}? It stops opening this workspace immediately.">
+          <input type="hidden" name="csrf_token" value="{{$.Session.CSRFToken}}"><button class="btn btn-sm btn-danger" type="submit">Remove</button></form>
+      </td>
+    </tr>
+    {{if not .Verified}}
+    <tr class="result-row"><td colspan="3">{{template "dns_records" .}}</td></tr>
+    {{end}}
+  {{end}}
+  </tbody>
+</table>
+</div>
+
+<h2>Add a custom domain</h2>
+<form method="post" action="/tenants/{{$t.ID}}/domains" class="card form-inline-compact">
+  <input type="hidden" name="csrf_token" value="{{.Session.CSRFToken}}">
+  <input name="domain" value="{{.Data.Input}}" placeholder="support.{{$t.ID}}.com" required>
+  <button class="btn btn-primary" type="submit">Add domain</button>
+</form>
+{{if .Data.DevAuto}}<p class="small muted">Local testing: domains ending in <code>.localhost</code> (e.g. <code>support-{{$t.ID}}.localhost</code>) are verified automatically and open in your browser without DNS.</p>{{end}}
+<p><a href="/tenants">← Back to tenants</a></p>
+{{end}}

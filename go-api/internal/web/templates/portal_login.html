@@ -1,0 +1,10 @@
+{{define "portal_content"}}
+<form method="post" action="/login" class="card login-card portal-login">
+  <h1>Sign in to {{.Tenant.Name}}</h1>
+  <p class="muted small">Workspace <strong>{{tenantHost .Tenant.ID}}</strong></p>
+  {{with .Data.Error}}<div class="flash flash-err">{{.}}</div>{{end}}
+  <label>Email <input name="email" type="email" value="{{.Data.Email}}" autocomplete="username" required autofocus></label>
+  <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+  <button class="btn btn-primary" type="submit">Sign in</button>
+</form>
+{{end}}

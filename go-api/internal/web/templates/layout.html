@@ -1,0 +1,37 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{.Session.CSRFToken}}">
+  <meta name="htmx-config" content='{"includeIndicatorStyles":false,"allowEval":false}'>
+  <title>{{.Title}} · SciCom CX</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body class="app">
+  <aside class="sidebar">
+    <a class="logo" href="/"><span class="logo-mark">S</span><span>SciCom CX<small>Platform console</small></span></a>
+    <a class="btn btn-primary btn-block" href="/tenants/new">+ New tenant</a>
+    <nav class="side-nav">
+      <div class="side-label">Platform</div>
+      <a href="/" {{if eq .Nav "Dashboard"}}class="active"{{end}}>Dashboard</a>
+      <a href="/tenants" {{if or (eq .Nav "Tenants") (eq .Nav "New tenant")}}class="active"{{end}}>Tenants</a>
+      <a href="/servers" {{if eq .Nav "Database servers"}}class="active"{{end}}>Database servers</a>
+      <div class="side-label">Assurance</div>
+      <a href="/isolation" {{if eq .Nav "Isolation test"}}class="active"{{end}}>Isolation test</a>
+      <a href="/audit" {{if eq .Nav "Audit log"}}class="active"{{end}}>Audit log</a>
+    </nav>
+    <form method="post" action="/logout" class="side-user">
+      <input type="hidden" name="csrf_token" value="{{.Session.CSRFToken}}">
+      <div><div class="small muted">Signed in as</div><strong>{{.Session.Username}}</strong></div>
+      <button class="btn btn-ghost btn-sm" type="submit">Sign out</button>
+    </form>
+  </aside>
+  <main class="content">
+    {{with .Flash}}<div class="flash flash-{{.Kind}}">{{.Msg}}</div>{{end}}
+    {{template "content" .}}
+  </main>
+</body>
+</html>{{end}}

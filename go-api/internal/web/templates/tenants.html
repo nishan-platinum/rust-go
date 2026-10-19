@@ -1,0 +1,58 @@
+{{define "content"}}
+<div class="page-head row">
+  <div>
+    <h1>Tenants</h1>
+    <p class="muted">Every tenant runs on its own subdomain or domain with its own database. Newest first. Editing a tenant's connection bumps its config version, and the engine swaps pools on the next request.</p>
+  </div>
+  <a class="btn btn-primary" href="/tenants/new">New tenant</a>
+</div>
+
+<form class="filter-bar" method="get" action="/tenants" role="search"
+      hx-get="/tenants" hx-trigger="input changed delay:250ms, change, submit" hx-target="#tenant-list"
+      hx-select="#tenant-list" hx-swap="outerHTML" hx-push-url="true">
+  <input type="search" name="q" value="{{.Data.Query}}" placeholder="Search by name, ID, address or database…" aria-label="Search tenants" autofocus>
+  <select name="db" aria-label="Database type">
+    <option value="">All databases</option>
+    {{range .Data.Types}}<option value="{{.}}" {{if eq . $.Data.DBType}}selected{{end}}>{{.}}</option>{{end}}
+  </select>
+</form>
+
+<div id="tenant-list">
+<p class="small muted">{{if or .Data.Query .Data.DBType}}{{len .Data.Tenants}} of {{.Data.Total}} tenants match · <a href="/tenants">clear filter</a>{{else}}{{.Data.Total}} tenants{{end}}</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tenant</th><th>Address</th><th>Database</th><th>Endpoint</th><th>Config v</th><th>Token v</th><th>Status</th><th>Actions</th></tr></thead>
+  <tbody>
+  {{range .Data.Tenants}}
+    <tr>
+      <td><strong>{{.Name}}</strong><div class="muted small">{{.ID}}</div></td>
+      <td class="small">{{template "tenant_address" .ID}}</td>
+      <td><span class="badge db-{{.DBType}}">{{.DBType}}</span><div class="small muted">{{.Mode}}</div></td>
+      <td class="mono small">{{.Host}}:{{.Port}}/{{.Database}}<div class="muted">user {{.Username}}</div></td>
+      <td class="num">{{.ConfigVersion}}</td>
+      <td class="num">{{.TokenVersion}}</td>
+      <td>{{if .Enabled}}<span class="pill pill-ok">enabled</span>{{else}}<span class="pill pill-off">disabled</span>{{end}}</td>
+      <td class="actions">
+        <a class="btn btn-sm" href="/tenants/{{.ID}}/edit">Edit / switch DB</a>
+        <a class="btn btn-sm" href="/tenants/{{.ID}}/domains">Domains</a>
+        <button class="btn btn-sm" hx-post="/tenants/{{.ID}}/health" hx-target="#res-{{.ID}}">Health</button>
+        <button class="btn btn-sm" hx-post="/tenants/{{.ID}}/provision" hx-target="#res-{{.ID}}">Provision</button>
+        <button class="btn btn-sm" hx-post="/tenants/{{.ID}}/token" hx-target="#res-{{.ID}}">Mint token</button>
+        <button class="btn btn-sm btn-warn" hx-post="/tenants/{{.ID}}/revoke" hx-target="#res-{{.ID}}"
+                hx-confirm="Revoke every token issued to {{.ID}}?">Revoke tokens</button>
+        <form method="post" action="/tenants/{{.ID}}/toggle" class="inline">
+          <input type="hidden" name="csrf_token" value="{{$.Session.CSRFToken}}">
+          <button class="btn btn-sm" type="submit">{{if .Enabled}}Disable{{else}}Enable{{end}}</button>
+        </form>
+        <a class="btn btn-sm btn-danger" href="/tenants/{{.ID}}/delete">Delete</a>
+      </td>
+    </tr>
+    <tr class="result-row"><td colspan="8"><div id="res-{{.ID}}"></div></td></tr>
+  {{else}}
+    <tr><td colspan="8" class="muted">{{if or $.Data.Query $.Data.DBType}}No tenants match this filter.{{else}}No tenants yet. <a href="/tenants/new">Create the first one</a>.{{end}}</td></tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+</div>
+{{end}}

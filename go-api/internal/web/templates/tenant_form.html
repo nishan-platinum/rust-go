@@ -1,0 +1,39 @@
+{{define "content"}}
+{{$t := .Data.Tenant}}
+<div class="page-head">
+  <h1>Edit {{$t.ID}}</h1>
+  <p class="muted">Change the database type or connection. Saving runs a connection check first, then bumps the config version (now v{{$t.ConfigVersion}}).
+  A database already claimed by another tenant is refused.</p>
+</div>
+{{with .Data.Errors}}<div class="flash flash-err">{{range .}}<div>{{.}}</div>{{end}}</div>{{end}}
+<form method="post" action="/tenants/{{$t.ID}}" class="card form-grid" id="tenant-form">
+  <input type="hidden" name="csrf_token" value="{{.Session.CSRFToken}}">
+  <label>Tenant ID
+    <input name="id" value="{{$t.ID}}" readonly>
+  </label>
+  <label>Display name <input name="name" value="{{$t.Name}}" required></label>
+  <label>Database type
+    <select name="db_type" id="db_type">
+      {{range $k, $v := .Data.Ports}}<option value="{{$k}}" data-port="{{$v}}" {{if eq $k $t.DBType}}selected{{end}}>{{$k}}</option>{{end}}
+    </select>
+  </label>
+  <label>Host <input name="host" value="{{$t.Host}}" required></label>
+  <label>Port <input name="port" id="port" type="number" min="1" max="65535" value="{{$t.Port}}" required></label>
+  <label>Database / schema <input name="database" value="{{$t.Database}}" required></label>
+  <label>Username <input name="username" value="{{$t.Username}}" autocomplete="off" required></label>
+  <label>Password
+    <input name="password" type="password" autocomplete="new-password" placeholder="leave blank to keep current">
+  </label>
+  <label class="span2">Driver params <span class="muted small">(one key=value per line, e.g. sslmode=disable, authSource=admin)</span>
+    <textarea name="params" rows="3" class="mono">{{params $t.Params}}</textarea>
+  </label>
+  <div class="span2 form-actions">
+    <button class="btn" type="button" hx-post="/tenants/test" hx-include="#tenant-form" hx-target="#test-result"
+            hx-indicator="#test-spin">Test connection</button>
+    <button class="btn btn-primary" type="submit">Save &amp; switch</button>
+    <a class="btn btn-ghost" href="/tenants">Cancel</a>
+    <span id="test-spin" class="htmx-indicator muted">testing…</span>
+  </div>
+  <div id="test-result" class="span2"></div>
+</form>
+{{end}}

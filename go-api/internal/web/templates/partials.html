@@ -1,0 +1,125 @@
+{{define "health"}}
+<div class="cards">
+{{range .}}
+  <div class="card tenant-card {{if not .Tenant.Enabled}}is-off{{else if and .Health .Health.Ok}}is-ok{{else}}is-bad{{end}}">
+    <div class="row">
+      <strong>{{.Tenant.ID}}</strong>
+      <span class="badge db-{{.Tenant.DBType}}">{{.Tenant.DBType}}</span>
+    </div>
+    <div class="muted small">{{.Tenant.Name}}</div>
+    <span class="small">{{template "tenant_address" .Tenant.ID}}</span>
+    <div class="mono small">{{.Tenant.Host}}:{{.Tenant.Port}}/{{.Tenant.Database}}</div>
+    {{if not .Tenant.Enabled}}
+      <div class="status">disabled</div>
+    {{else if .Health.Ok}}
+      <div class="status ok">● healthy · {{.Health.LatencyMs}} ms</div>
+      <div class="muted small truncate" title="{{.Health.ServerVersion}}">{{.Health.ServerVersion}}</div>
+    {{else}}
+      <div class="status bad">● down</div>
+      <div class="small err-text">{{.Health.Error}}</div>
+    {{end}}
+    <div class="muted small">config v{{.Tenant.ConfigVersion}} · token v{{.Tenant.TokenVersion}}</div>
+  </div>
+{{else}}
+  <p class="muted">No tenants yet. <a href="/tenants/new">Create the first one</a>.</p>
+{{end}}
+</div>
+{{end}}
+
+{{define "pools"}}
+{{with .Error}}<div class="flash flash-err">{{.}}</div>{{end}}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tenant</th><th>Type</th><th>Version</th><th class="num">Open conns</th><th class="num">Idle</th><th class="num">Requests</th><th>Created</th></tr></thead>
+  <tbody>
+  {{range .Pools}}
+    <tr><td>{{.TenantId}}</td><td><span class="badge db-{{dbname .DbType}}">{{dbname .DbType}}</span></td>
+      <td class="num">v{{.ConfigVersion}}</td>
+      <td class="num">{{if eq (dbname .DbType) "mongodb"}}<span class="muted" title="managed by the MongoDB driver">n/a</span>{{else}}{{.Size}}{{end}}</td>
+      <td class="num">{{if eq (dbname .DbType) "mongodb"}}<span class="muted">n/a</span>{{else}}{{.Idle}}{{end}}</td>
+      <td class="num">{{.Requests}}</td><td class="small">{{unix .CreatedAtUnix}}</td></tr>
+  {{else}}
+    <tr><td colspan="7" class="muted">No pools yet. They are created lazily on a tenant's first request.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
+
+{{define "action_result"}}
+<div class="result {{if .OK}}result-ok{{else}}result-err{{end}}">
+  <strong>{{.Title}}</strong> {{.Detail}}
+  {{with .Token}}<textarea class="mono token" rows="3" readonly>{{.}}</textarea>{{end}}
+  {{with .Curl}}<div class="small muted">Try it:</div><textarea class="mono token" rows="3" readonly>{{.}}</textarea>{{end}}
+</div>
+{{end}}
+
+{{define "report"}}
+{{if .Error}}
+  <div class="flash flash-err">{{.Error}}</div>
+{{else}}
+<div class="verdict {{if .Pass}}verdict-pass{{else}}verdict-fail{{end}}">
+  <div class="verdict-title">{{if .Pass}}PASS: no cross-tenant leaks, all checks passed{{else}}FAIL: see details below{{end}}</div>
+  <div>{{.TotalRequests}} requests in {{secs .Duration}} · {{printf "%.0f" .RPS}} req/s · {{.Options.Concurrency}} workers ·
+    {{.TotalLeaks}} leaks · {{.FailedChecks}} failed checks of {{len .Checks}}</div>
+</div>
+
+<h2>Per-tenant load results</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Tenant</th><th>DB</th><th class="num">Requests</th><th class="num">OK</th><th class="num">Errors</th><th class="num">Leaks</th>
+    <th class="num" title="distinct DB connections observed">DB sessions</th><th class="num">p50</th><th class="num">p95</th><th class="num">max</th></tr></thead>
+  <tbody>
+  {{range .Tenants}}
+    <tr class="{{if gt .Leaks 0}}row-bad{{else if gt .Errors 0}}row-warn{{end}}">
+      <td><strong>{{.TenantID}}</strong></td><td><span class="badge db-{{.DBType}}">{{.DBType}}</span></td>
+      <td class="num">{{.Requests}}</td><td class="num">{{.OK}} <span class="muted small">{{pct .OK .Requests}}</span></td>
+      <td class="num">{{.Errors}}</td><td class="num">{{.Leaks}}</td>
+      <td class="num">{{if .Sessions}}{{.Sessions}}{{else}}<span class="muted">n/a</span>{{end}}</td>
+      <td class="num">{{ms .P50}}</td><td class="num">{{ms .P95}}</td><td class="num">{{ms .Max}}</td>
+    </tr>
+    {{with .FirstError}}<tr class="result-row"><td colspan="10" class="small err-text">first error: {{.}}</td></tr>{{end}}
+  {{end}}
+  </tbody>
+</table>
+</div>
+
+{{with .Leaks}}
+<h2>Leaks detected</h2>
+<ul class="leaks">{{range .}}<li class="mono small">{{.}}</li>{{end}}</ul>
+{{end}}
+
+<h2>Security checks</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Group</th><th>Check</th><th>Expected</th><th>Got</th><th></th></tr></thead>
+  <tbody>
+  {{range .Checks}}
+    <tr class="{{if not .Pass}}row-bad{{end}}">
+      <td class="small"><code>{{.Group}}</code></td><td>{{.Name}}</td>
+      <td class="mono small">{{.Expect}}</td><td class="mono small">{{.Got}}</td>
+      <td>{{if .Pass}}<span class="pill pill-ok">pass</span>{{else}}<span class="pill pill-bad">FAIL</span>{{end}}</td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
+{{end}}
+{{end}}
+
+{{/* DNS records a client creates for a pending custom domain (arg: store.Domain). */}}
+{{define "dns_records"}}
+<div class="dns-box">
+  <div class="small"><strong>Ask the client to add these 2 DNS records</strong>, then click Verify on the tenant's Domains page:</div>
+  <table class="dns-table">
+    <tr><th>Type</th><th>Name</th><th>Value</th><th>Purpose</th></tr>
+    <tr><td><code>CNAME</code></td><td><code>{{.Domain}}</code></td><td><code>{{cnameTarget}}</code></td><td class="small muted">points the domain to SciCom CX</td></tr>
+    <tr><td><code>TXT</code></td><td><code>{{challengeName .Domain}}</code></td><td><code>{{.VerifyToken}}</code></td><td class="small muted">proves they own the domain</td></tr>
+  </table>
+</div>
+{{end}}
+
+{{/* Live address of a tenant, or a "waiting for DNS" hint (arg: tenant id). */}}
+{{define "tenant_address"}}
+{{with tenantHost .}}<a href="{{tenantURL $}}" target="_blank" rel="noopener">{{.}}</a>{{else}}<a class="pill pill-warn" href="/tenants/{{.}}/domains">waiting for DNS</a>{{end}}
+{{end}}

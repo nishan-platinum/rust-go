@@ -1,0 +1,109 @@
+# Dev/test stack. All credentials here are for local testing only; in
+# production inject them from a secret manager.
+name: scicomcx
+
+x-db-health: &db-health
+  interval: 5s
+  timeout: 5s
+  retries: 30
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app_pass
+    volumes:
+      - ./deploy/init/postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - pgdata:/var/lib/postgresql/data
+    ports: ["127.0.0.1:15432:5432"]
+    healthcheck:
+      <<: *db-health
+      test: ["CMD-SHELL", "pg_isready -U app -d scicomcx_central"]
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pass
+    volumes:
+      - ./deploy/init/mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - mysqldata:/var/lib/mysql
+    ports: ["127.0.0.1:13306:3306"]
+    healthcheck:
+      <<: *db-health
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot_pass --silent"]
+
+  mariadb:
+    image: mariadb:11.4
+    environment:
+      MARIADB_ROOT_PASSWORD: root_pass
+    volumes:
+      - ./deploy/init/mariadb.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - mariadbdata:/var/lib/mysql
+    ports: ["127.0.0.1:13307:3306"]
+    healthcheck:
+      <<: *db-health
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+
+  mongodb:
+    image: mongo:8.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root_pass
+    volumes:
+      - ./deploy/init/mongo.js:/docker-entrypoint-initdb.d/init.js:ro
+      - mongodata:/data/db
+    ports: ["127.0.0.1:37017:27017"]
+    healthcheck:
+      <<: *db-health
+      test: ["CMD", "mongosh", "--quiet", "-u", "root", "-p", "root_pass", "--eval", "db.adminCommand('ping').ok"]
+
+  rust-engine:
+    build:
+      context: .
+      dockerfile: rust-engine/Dockerfile
+    environment:
+      ENGINE_ADDR: 0.0.0.0:50051
+      ENGINE_INTERNAL_TOKEN: ${ENGINE_INTERNAL_TOKEN:-dev-internal-token-change-me}
+      POOL_MAX_CONNS: "10"
+      RUST_LOG: info
+    # Not published: only the Go API talks to the engine.
+    expose: ["50051"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      mysql: { condition: service_healthy }
+      mariadb: { condition: service_healthy }
+      mongodb: { condition: service_healthy }
+
+  go-api:
+    build:
+      context: .
+      dockerfile: go-api/Dockerfile
+    environment:
+      HTTP_ADDR: 0.0.0.0:8080
+      CONTROL_DB_URL: postgres://app:app_pass@postgres:5432/scicomcx_central?sslmode=disable
+      # Tenants: http://<tenant>.scicomcx.localhost:8080, admin: http://admin.scicomcx.localhost:8080
+      BASE_DOMAIN: ${BASE_DOMAIN:-scicomcx.localhost}
+      PUBLIC_PORT: "8080"
+      # Local testing: custom domains ending in .localhost are verified without DNS.
+      # Never enable in production.
+      DOMAIN_DEV_AUTOVERIFY: "true"
+      ENGINE_ADDR: rust-engine:50051
+      ENGINE_INTERNAL_TOKEN: ${ENGINE_INTERNAL_TOKEN:-dev-internal-token-change-me}
+      # 32 random bytes, base64. Generate your own: openssl rand -base64 32
+      MASTER_KEY: ${MASTER_KEY:-1Lr3o0b2sHgk9vYQm0cX3l6d0Z8Yp7Fh2y0wq3N4aJk=}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me-at-least-32-bytes}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
+      SEED_FILE: /app/seed/tenants.json
+      COOKIE_SECURE: "false"
+    ports: ["127.0.0.1:8080:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      rust-engine: { condition: service_started }
+
+volumes:
+  pgdata:
+  mysqldata:
+  mariadbdata:
+  mongodata:

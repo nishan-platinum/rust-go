@@ -1,0 +1,44 @@
+{{define "content"}}
+{{$res := .Data.Res}}
+<div class="page-head">
+  <h1>{{if $res.OK}}Tenant created{{else}}Tenant could not be created{{end}}</h1>
+  <p class="muted">{{.Data.Req.Name}} · {{.Data.Req.DBType}} · {{.Data.Req.Mode}}</p>
+</div>
+
+<div class="card">
+  <ol class="checklist">
+    {{range $res.Steps}}
+    <li class="{{if .OK}}done{{else}}failed{{end}}">
+      <span class="tick">{{if .OK}}✓{{else}}✗{{end}}</span>
+      <div><strong>{{.Name}}</strong><div class="small {{if .OK}}muted{{else}}err-text{{end}}">{{.Detail}}</div></div>
+    </li>
+    {{end}}
+  </ol>
+</div>
+
+{{if $res.OK}}
+<div class="card live-card">
+  {{if $res.PortalURL}}
+  <div class="small muted">Workspace is live at</div>
+  <a class="live-url" href="{{$res.PortalURL}}" target="_blank" rel="noopener">{{$res.PortalURL}}</a>
+  {{else}}
+  <div class="small muted">Workspace is ready and will be live at</div>
+  <div class="live-url">{{$res.Domain.Domain}}</div>
+  <div class="small">…as soon as the client's DNS records are in place and you click <strong>Verify</strong> on the <a href="/tenants/{{$res.Tenant.ID}}/domains">Domains page</a>.</div>
+  {{end}}
+  {{with $res.Domain}}{{if not .Verified}}{{template "dns_records" .}}{{end}}{{end}}
+  <div class="form-grid">
+    <div><div class="small muted">Tenant admin</div><code>{{$res.AdminEmail}}</code></div>
+    {{with $res.GeneratedPassword}}<div><div class="small muted">Generated password (shown once)</div><code class="secret">{{.}}</code></div>{{end}}
+  </div>
+  <div class="form-actions">
+    {{with $res.PortalURL}}<a class="btn btn-primary" href="{{.}}/login" target="_blank" rel="noopener">Open workspace</a>{{end}}
+    <a class="btn" href="/tenants/{{$res.Tenant.ID}}/domains">Domains</a>
+    <a class="btn" href="/tenants">All tenants</a>
+    <a class="btn btn-ghost" href="/tenants/new">Create another</a>
+  </div>
+</div>
+{{else}}
+<div class="form-actions"><a class="btn btn-primary" href="/tenants/new">Try again</a><a class="btn btn-ghost" href="/tenants">Back to tenants</a></div>
+{{end}}
+{{end}}

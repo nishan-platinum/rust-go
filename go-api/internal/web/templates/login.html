@@ -1,0 +1,19 @@
+{{define "login"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · SciCom CX</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="login-body">
+  <form method="post" action="/login" class="card login-card">
+    <div class="logo login-logo"><span class="logo-mark">S</span><span>SciCom CX<small>Platform console</small></span></div>
+    <p class="muted">Sign in as a platform administrator.</p>
+    {{with .Data.Error}}<div class="flash flash-err">{{.}}</div>{{end}}
+    <label>Username <input name="username" value="{{.Data.Username}}" autocomplete="username" required autofocus></label>
+    <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn btn-primary" type="submit">Sign in</button>
+  </form>
+</body>
+</html>{{end}}

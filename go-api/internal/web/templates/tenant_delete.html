@@ -1,0 +1,21 @@
+{{define "content"}}
+{{$t := .Data}}
+<div class="page-head">
+  <h1>Delete {{$t.ID}}</h1>
+  <p class="muted">{{$t.Name}} · {{$t.DBType}} · {{$t.Mode}} · {{$t.Host}}:{{$t.Port}}/{{$t.Database}}</p>
+</div>
+<form method="post" action="/tenants/{{$t.ID}}/delete" class="card danger-card">
+  <input type="hidden" name="csrf_token" value="{{.Session.CSRFToken}}">
+  <p>The subdomain <strong>{{tenantHost $t.ID}}</strong> stops working immediately and all sessions of its users end.</p>
+  {{if $t.Managed}}
+  <label class="check"><input type="checkbox" name="drop_data" id="drop_data"> Also <strong>permanently drop</strong> the database <code>{{$t.Database}}</code> and DB user <code>{{$t.Username}}</code></label>
+  <label>Type <code>{{$t.ID}}</code> to confirm dropping data <input name="confirm_id" autocomplete="off"></label>
+  {{else}}
+  <p class="small muted">This tenant uses an external database. It is never dropped by SciCom CX; only the registration is removed.</p>
+  {{end}}
+  <div class="form-actions">
+    <button class="btn btn-danger-solid" type="submit">Delete tenant</button>
+    <a class="btn btn-ghost" href="/tenants">Cancel</a>
+  </div>
+</form>
+{{end}}

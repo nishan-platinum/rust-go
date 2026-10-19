@@ -1,0 +1,19 @@
+{{define "content"}}
+<div class="page-head">
+  <h1>Audit log</h1>
+  <p class="muted">Logins, config changes, token operations, blocked cross-tenant attempts and isolation runs. Last 200 entries.</p>
+</div>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Tenant</th><th>Detail</th></tr></thead>
+  <tbody>
+  {{range .Data}}
+    <tr class="{{if eq .Action "cross_tenant_blocked" "login_failed"}}row-warn{{end}}">
+      <td class="small nowrap">{{ago .At}}</td><td class="small">{{.Actor}}</td>
+      <td><code>{{.Action}}</code></td><td>{{.TenantID}}</td><td class="small mono">{{.Detail}}</td>
+    </tr>
+  {{else}}<tr><td colspan="5" class="muted">Nothing yet.</td></tr>{{end}}
+  </tbody>
+</table>
+</div>
+{{end}}

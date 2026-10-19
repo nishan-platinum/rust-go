@@ -1,0 +1,30 @@
+{{define "portal"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{.User.CSRFToken}}">
+  <title>{{.Title}}{{with .Tenant.Name}} · {{.}}{{end}}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body class="portal">
+  <header class="portal-bar">
+    <div class="logo">
+      <span class="logo-mark tenant-mark">{{with .Tenant.Name}}{{slice . 0 1}}{{else}}?{{end}}</span>
+      <span>{{with .Tenant.Name}}{{.}}{{else}}SciCom CX{{end}}<small>powered by SciCom CX</small></span>
+    </div>
+    {{if .LoggedIn}}
+    <form method="post" action="/logout" class="portal-user">
+      <input type="hidden" name="csrf_token" value="{{.User.CSRFToken}}">
+      <span class="small"><strong>{{.User.Name}}</strong> <span class="muted">{{.User.Email}} · {{.User.Role}}</span></span>
+      <button class="btn btn-ghost btn-sm" type="submit">Sign out</button>
+    </form>
+    {{end}}
+  </header>
+  <main class="portal-main">
+    {{with .Flash}}<div class="flash flash-{{.Kind}}">{{.Msg}}</div>{{end}}
+    {{template "portal_content" .}}
+  </main>
+</body>
+</html>{{end}}
